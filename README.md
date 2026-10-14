@@ -10,7 +10,7 @@ An Arabic-first intentional social network focused on meaningful knowledge excha
 
 ## Architecture
 - FastAPI serves the RTL web UI and JSON API.
-- PostgreSQL in deployment; SQLite is only a local development fallback.
+- PostgreSQL is the intended deployment backend. Current Render deployment still reports `database_backend=sqlite` and `postgres_configured=false`, so persistent PostgreSQL is **not connected yet**. Do not use this deployment for real community data until the database reference is configured and verified.
 - SQLAlchemy models: users, posts, comments, semantic signals, saved posts, reports, audit events.
 - Argon2 password hashing, signed expiring bearer tokens, server-side ownership checks.
 - Health endpoint checks database connectivity.
