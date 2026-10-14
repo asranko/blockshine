@@ -208,9 +208,8 @@ def post_out(db: Session, post: Post, viewer_id: Optional[str] = None):
         "author": {"username": post.author.username, "display_name": post.author.display_name, "bio": post.author.bio},
         "comments": [{"id": c.id, "body": c.body, "created_at": c.created_at,
                       "author": {"username": c.author.username, "display_name": c.author.display_name}} for c in comments],
-        "saved": saved, "my_signals": sorted(my_signals),
-        "signals": {k: db.scalar(select(func.count(Signal.id)).where(Signal.post_id == post.id, Signal.kind == k)) or 0
-                    for k in ("استفدت", "فكرت", "تواصلت معك")}
+        # Signal membership is private to the viewer; do not expose aggregate counts.
+        "saved": saved, "my_signals": sorted(my_signals)
     }
 
 def get_post_or_404(db: Session, post_id: str):
@@ -228,7 +227,14 @@ def health():
     try:
         with engine.connect() as conn:
             conn.execute(select(1))
-        return {"status": "ok", "service": "lub-social", "database": "reachable", "version": "0.1.0"}
+        return {
+            "status": "ok",
+            "service": "lub-social",
+            "database": "reachable",
+            "database_backend": engine.dialect.name,
+            "postgres_configured": engine.dialect.name == "postgresql",
+            "version": "0.1.1"
+        }
     except Exception:
         raise HTTPException(status_code=503, detail="database_unavailable")
 
