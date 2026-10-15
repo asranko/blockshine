@@ -108,7 +108,14 @@ def product_pack_valid() -> bool:
     return product_pack_status() == "valid"
 
 def payment_configured() -> bool:
-    return bool(env("PAYPAL_CLIENT_ID") and env("PAYPAL_CLIENT_SECRET") and len(env("HESBA_DOWNLOAD_SECRET")) >= 32 and product_pack_valid())
+    # Never expose a live checkout unless production PayPal credentials and the product asset are configured.
+    return bool(
+        env("PAYPAL_MODE").lower() == "live"
+        and env("PAYPAL_CLIENT_ID")
+        and env("PAYPAL_CLIENT_SECRET")
+        and len(env("HESBA_DOWNLOAD_SECRET")) >= 32
+        and product_pack_valid()
+    )
 
 
 def paypal_request(method: str, path: str, body: dict | None = None, request_id: str | None = None) -> dict:
@@ -196,6 +203,16 @@ class CreateOrderInput(BaseModel):
 
 class CaptureOrderInput(BaseModel):
     order_id: str = Field(min_length=8, max_length=40)
+
+
+@APP.get("/")
+def root():
+    return {
+        "service": "hesba-payments-api",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @APP.get("/health")
