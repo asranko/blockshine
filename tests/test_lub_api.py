@@ -139,3 +139,55 @@ def test_semantic_signals_do_not_expose_public_aggregate_counts():
     item = next(item for item in feed if item["id"] == post["id"])
     assert item["my_signals"] == ["فكرت"]
     assert "signals" not in item
+
+
+
+def test_hidden_profile_posts_are_not_visible_or_interactable_by_others():
+    owner_token, _ = register("qa_hidden_owner")
+    reader_token, _ = register("qa_hidden_reader")
+    created = client.post(
+        "/api/posts",
+        headers=auth(owner_token),
+        json={"body": "منشور خاص لا يظهر عند إخفاء الملف الشخصي.", "intention": "أفيد", "topic": "موضوع خاص"},
+    )
+    assert created.status_code == 201, created.text
+    post = created.json()
+    age_post_past_fridge(post["id"])
+    confirmed = client.post(f"/api/posts/{post['id']}/confirm", headers=auth(owner_token))
+    assert confirmed.status_code == 200, confirmed.text
+
+    hidden = client.patch(
+        "/api/profile",
+        headers=auth(owner_token),
+        json={"display_name": "Hidden Owner", "bio": "", "profile_hidden": True},
+    )
+    assert hidden.status_code == 200, hidden.text
+
+    feed = client.get("/api/posts", headers=auth(reader_token)).json()["items"]
+    assert all(item["id"] != post["id"] for item in feed)
+
+    comment = client.post(
+        f"/api/posts/{post['id']}/comments",
+        headers=auth(reader_token),
+        json={"body": "تعليق غير مصرح به"},
+    )
+    assert comment.status_code == 404
+
+    signal = client.put(
+        f"/api/posts/{post['id']}/signals/فكرت",
+        headers=auth(reader_token),
+    )
+    assert signal.status_code == 404
+
+    saved = client.put(f"/api/posts/{post['id']}/save", headers=auth(reader_token))
+    assert saved.status_code == 404
+
+    report = client.post(
+        f"/api/posts/{post['id']}/reports",
+        headers=auth(reader_token),
+        json={"reason": "spam", "details": ""},
+    )
+    assert report.status_code == 404
+
+    topics = client.get("/api/discovery/topics").json()["items"]
+    assert all(item["topic"] != "موضوع خاص" for item in topics)
