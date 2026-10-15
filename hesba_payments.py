@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 import io
 import zipfile
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -55,17 +56,32 @@ def paypal_base() -> str:
     return "https://api-m.paypal.com" if env("PAYPAL_MODE").lower() == "live" else "https://api-m.sandbox.paypal.com"
 
 
+def load_product_pack() -> bytes:
+    key_text = env("HESBA_KIT_KEY")
+    if not key_text:
+        raise ValueError("product key not configured")
+    key = base64.b64decode(key_text, validate=True)
+    if len(key) != 32:
+        raise ValueError("product key length invalid")
+    encrypted_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.aesgcm.b64"
+    packed = base64.b64decode(encrypted_path.read_text(encoding="ascii").strip(), validate=True)
+    if len(packed) < 29:
+        raise ValueError("encrypted product too short")
+    content = AESGCM(key).decrypt(packed[:12], packed[12:], b"hesba-kit-v1")
+    if not content.startswith(bytes((80, 75, 3, 4))):
+        raise ValueError("product is not a zip archive")
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        if archive.testzip() is not None or len(archive.namelist()) < 10:
+            raise ValueError("product archive integrity failed")
+    return content
+
+
 def product_pack_valid() -> bool:
-    encoded = env("HESBA_KIT_B64")
-    if not encoded:
-        return False
     try:
-        content = base64.b64decode(encoded, validate=True)
-        with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            return archive.testzip() is None and len(archive.namelist()) >= 10
+        load_product_pack()
+        return True
     except Exception:
         return False
-
 
 def payment_configured() -> bool:
     return bool(env("PAYPAL_CLIENT_ID") and env("PAYPAL_CLIENT_SECRET") and len(env("HESBA_DOWNLOAD_SECRET")) >= 32 and product_pack_valid())
@@ -242,8 +258,6 @@ def capture_order(data: CaptureOrderInput):
 
 @APP.get("/api/download/{token}")
 def download_product(token: str):
-    if not env("HESBA_KIT_B64"):
-        raise HTTPException(status_code=503, detail="product_file_not_configured")
     try:
         claims = jwt.decode(token, download_secret(), algorithms=["HS256"], options={"require": ["sub", "iat", "exp"]})
         if claims.get("sub") != PRODUCT_ID or not claims.get("order_id"):
@@ -251,11 +265,9 @@ def download_product(token: str):
     except Exception:
         raise HTTPException(status_code=403, detail="download_link_invalid_or_expired")
     try:
-        content = base64.b64decode(env("HESBA_KIT_B64"), validate=True)
+        content = load_product_pack()
     except Exception:
         raise HTTPException(status_code=503, detail="product_file_not_configured")
-    if not content.startswith(b"PK\x03\x04"):
-        raise HTTPException(status_code=503, detail="product_file_invalid")
     return Response(
         content=content,
         media_type="application/zip",
