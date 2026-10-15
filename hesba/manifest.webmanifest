@@ -1,0 +1,11 @@
+{
+  "name": "حِسبة | أدوات شغلك الحر",
+  "short_name": "حِسبة",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f5ef",
+  "theme_color": "#123b2c",
+  "icons": []
+}
