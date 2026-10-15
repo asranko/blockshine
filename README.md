@@ -43,7 +43,7 @@ After sync, verify `GET /health` reports `database_backend=postgresql` and `post
 `.github/workflows/lub-api-tests.yml` is configured to run these tests. The first observed GitHub Actions run did not start the job because GitHub reported: "The job was not started because your account is locked due to a billing issue." Therefore these automated tests are **not verified as passing**. Do not interpret the existence of test files or a workflow as a successful test run.
 
 ## Run locally
-Python 3.12+: create a virtual environment, run `pip install -r requirements.txt`, set a strong `SECRET_KEY`, optionally set `DATABASE_URL`, then run `uvicorn main:app --host 0.0.0.0 --port 8000`. Visit `/` and `/docs`. To run regression tests, install `pytest httpx` and run `python -m pytest -q`.
+Python 3.12+: create a virtual environment, run `pip install -r requirements.txt`, set a strong `SECRET_KEY`, optionally set `DATABASE_URL`, then run `uvicorn main:app --host 0.0.0.0 --port 8000`. Visit `/` and `/docs`. To run regression tests, install `requirements-dev.txt` and run `python -m pytest -q`. The Render Blueprint build command also runs these tests before deployment.
 
 ## Environment variables
 - `DATABASE_URL`: intended to be the internal PostgreSQL connection URL.
