@@ -224,6 +224,10 @@ def get_post_or_404(db: Session, post_id: str):
         raise HTTPException(status_code=404, detail="المنشور غير موجود.")
     return post
 
+def ensure_post_visible(post: Post, viewer: User):
+    if post.author.profile_hidden and post.author_id != viewer.id:
+        raise HTTPException(status_code=404, detail="المنشور غير موجود.")
+
 @app.get("/")
 def home():
     return FileResponse("index.html")
@@ -279,7 +283,10 @@ def me(user: User = Depends(current_user)):
 
 @app.patch("/api/profile", response_model=UserOut)
 def update_profile(data: ProfileIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    user.display_name = data.display_name.strip()
+    display_name = data.display_name.strip()
+    if len(display_name) < 2:
+        raise HTTPException(status_code=422, detail="اسم العرض لازم يكون حرفين على الأقل.")
+    user.display_name = display_name
     user.bio = data.bio.strip()
     user.profile_hidden = data.profile_hidden
     audit(db, user.id, "profile.updated", "user", user.id)
@@ -288,7 +295,7 @@ def update_profile(data: ProfileIn, user: User = Depends(current_user), db: Sess
     return user
 
 @app.get("/api/profiles/{username}")
-def public_profile(username: str, viewer: Optional[User] = Depends(lambda: None), db: Session = Depends(get_db)):
+def public_profile(username: str, db: Session = Depends(get_db)):
     target = db.scalar(select(User).where(User.username == username.lower()))
     if not target or not target.is_active:
         raise HTTPException(status_code=404, detail="الملف غير موجود.")
