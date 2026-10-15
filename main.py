@@ -213,7 +213,10 @@ def post_out(db: Session, post: Post, viewer_id: Optional[str] = None):
         "published_at": post.published_at,
         "author": {"username": post.author.username, "display_name": post.author.display_name, "bio": post.author.bio},
         "comments": [{"id": c.id, "body": c.body, "created_at": c.created_at,
-                      "author": {"username": c.author.username, "display_name": c.author.display_name}} for c in comments],
+                      "author": {
+                          "username": c.author.username if not c.author.profile_hidden or c.author_id == viewer_id else None,
+                          "display_name": c.author.display_name if not c.author.profile_hidden or c.author_id == viewer_id else "عضو بملف مخفي"
+                      }} for c in comments],
         # Signal membership is private to the viewer; do not expose aggregate counts.
         "saved": saved, "my_signals": sorted(my_signals)
     }
@@ -454,12 +457,18 @@ def saved_posts(user: User = Depends(current_user), db: Session = Depends(get_db
 @app.post("/api/posts/{post_id}/reports", status_code=201)
 def report_post(post_id: str, data: ReportIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     post = get_post_or_404(db, post_id)
+    ensure_post_visible(post, user)
+    if post.status != "published":
+        raise HTTPException(status_code=409, detail="يمكن الإبلاغ عن المنشور بعد نشره فقط.")
     if post.author_id == user.id:
         raise HTTPException(status_code=422, detail="مينفعش تبلغ عن منشورك.")
     duplicate = db.scalar(select(Report.id).where(Report.post_id == post.id, Report.reporter_id == user.id, Report.state == "open"))
     if duplicate:
         raise HTTPException(status_code=409, detail="سبق وقدمت بلاغًا مفتوحًا عن المنشور.")
-    report = Report(post_id=post.id, reporter_id=user.id, reason=data.reason, details=data.details.strip())
+    reason = data.reason.strip()
+    if len(reason) < 3:
+        raise HTTPException(status_code=422, detail="سبب البلاغ لازم يكون واضحًا.")
+    report = Report(post_id=post.id, reporter_id=user.id, reason=reason, details=data.details.strip())
     db.add(report); db.flush()
     audit(db, user.id, "report.created", "report", report.id)
     db.commit()
