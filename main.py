@@ -377,7 +377,10 @@ def edit_post(post_id: str, data: PostIn, user: User = Depends(current_user), db
         raise HTTPException(status_code=409, detail="التعديل متاح أثناء وجود المنشور في الثلاجة فقط.")
     if data.intention not in {"أفيد", "أتعلم", "أوثّق ذكرى", "أطلب مساعدة"}:
         raise HTTPException(status_code=422, detail="اختار قصدًا صالحًا.")
-    post.body = data.body.strip(); post.intention = data.intention; post.topic = data.topic.strip() or "عام"; post.edited_at = now_utc()
+    body = data.body.strip()
+    if len(body) < 8:
+        raise HTTPException(status_code=422, detail="المنشور قصير جدًا بعد إزالة المسافات.")
+    post.body = body; post.intention = data.intention; post.topic = data.topic.strip() or "عام"; post.edited_at = now_utc()
     audit(db, user.id, "post.edited", "post", post.id)
     db.commit()
     return post_out(db, post, user.id)
@@ -440,7 +443,12 @@ def toggle_save(post_id: str, user: User = Depends(current_user), db: Session = 
 
 @app.get("/api/saved")
 def saved_posts(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    posts = db.scalars(select(Post).join(SavedPost, SavedPost.post_id == Post.id).where(SavedPost.user_id == user.id).order_by(desc(SavedPost.created_at)).limit(100)).all()
+    posts = db.scalars(
+        select(Post).join(SavedPost, SavedPost.post_id == Post.id)
+        .join(User, User.id == Post.author_id)
+        .where(SavedPost.user_id == user.id, or_(User.profile_hidden == False, User.id == user.id))
+        .order_by(desc(SavedPost.created_at)).limit(100)
+    ).all()
     return {"items": [post_out(db, p, user.id) for p in posts if p.status == "published" or p.author_id == user.id]}
 
 @app.post("/api/posts/{post_id}/reports", status_code=201)
@@ -459,7 +467,12 @@ def report_post(post_id: str, data: ReportIn, user: User = Depends(current_user)
 
 @app.get("/api/discovery/topics")
 def topics(db: Session = Depends(get_db)):
-    rows = db.execute(select(Post.topic, func.count(Post.id)).where(Post.status == "published").group_by(Post.topic).order_by(desc(func.count(Post.id))).limit(20)).all()
+    rows = db.execute(
+        select(Post.topic, func.count(Post.id))
+        .join(User, User.id == Post.author_id)
+        .where(Post.status == "published", User.is_active == True, User.profile_hidden == False)
+        .group_by(Post.topic).order_by(desc(func.count(Post.id))).limit(20)
+    ).all()
     return {"items": [{"topic": r[0], "posts": r[1]} for r in rows]}
 
 @app.get("/api/admin/audit")
