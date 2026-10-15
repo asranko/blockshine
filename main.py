@@ -14,7 +14,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from pwdlib import PasswordHash
 from sqlalchemy import (
     Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
-    create_engine, select, desc, func, or_
+    create_engine, select, desc, func, or_, event
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, sessionmaker
 
@@ -39,6 +39,12 @@ engine_args = {"pool_pre_ping": True}
 if DATABASE_URL.startswith("sqlite"):
     engine_args["connect_args"] = {"check_same_thread": False}
 engine = create_engine(DATABASE_URL, **engine_args)
+if engine.dialect.name == "sqlite":
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 password_hash = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
