@@ -394,9 +394,13 @@ def delete_post(post_id: str, user: User = Depends(current_user), db: Session = 
 @app.post("/api/posts/{post_id}/comments", status_code=201)
 def add_comment(post_id: str, data: CommentIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     post = get_post_or_404(db, post_id)
+    ensure_post_visible(post, user)
     if post.status != "published":
         raise HTTPException(status_code=409, detail="التعليق متاح بعد النشر فقط.")
-    comment = Comment(post_id=post.id, author_id=user.id, body=data.body.strip())
+    body = data.body.strip()
+    if not body:
+        raise HTTPException(status_code=422, detail="التعليق لا يمكن أن يكون فارغًا.")
+    comment = Comment(post_id=post.id, author_id=user.id, body=body)
     db.add(comment); db.flush()
     audit(db, user.id, "comment.created", "comment", comment.id)
     db.commit()
@@ -408,6 +412,7 @@ def toggle_signal(post_id: str, kind: str, user: User = Depends(current_user), d
     if kind not in {"استفدت", "فكرت", "تواصلت معك"}:
         raise HTTPException(status_code=422, detail="إشارة غير معروفة.")
     post = get_post_or_404(db, post_id)
+    ensure_post_visible(post, user)
     if post.status != "published":
         raise HTTPException(status_code=409, detail="الإشارات متاحة للمنشورات المنشورة فقط.")
     existing = db.scalar(select(Signal).where(Signal.post_id == post.id, Signal.user_id == user.id, Signal.kind == kind))
@@ -422,6 +427,9 @@ def toggle_signal(post_id: str, kind: str, user: User = Depends(current_user), d
 @app.put("/api/posts/{post_id}/save")
 def toggle_save(post_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
     post = get_post_or_404(db, post_id)
+    ensure_post_visible(post, user)
+    if post.status != "published" and post.author_id != user.id:
+        raise HTTPException(status_code=409, detail="يمكن حفظ المنشور بعد نشره فقط.")
     existing = db.scalar(select(SavedPost).where(SavedPost.post_id == post.id, SavedPost.user_id == user.id))
     if existing:
         db.delete(existing); active = False
