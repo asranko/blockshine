@@ -38,7 +38,7 @@ After sync, verify `GET /health` reports `database_backend=postgresql` and `post
 - `POST /api/posts/{id}/reports`, `GET /api/saved`, `GET /api/discovery/topics`, `GET /api/admin/audit`, `DELETE /api/account`
 
 ## Test coverage and status
-`tests/test_lub_api.py` covers health metadata, product rules, fridge timing, exclusion of pending posts from the public feed, explicit publishing after the fridge, ownership enforcement, and signal-count privacy.
+`tests/test_lub_api.py` covers health metadata, product rules, fridge timing, exclusion of pending posts from the public feed, explicit publishing after the fridge, ownership enforcement, signal-count privacy, and visibility isolation for hidden profiles.
 
 `.github/workflows/lub-api-tests.yml` is configured to run these tests. The first observed GitHub Actions run did not start the job because GitHub reported: "The job was not started because your account is locked due to a billing issue." Therefore these automated tests are **not verified as passing**. Do not interpret the existence of test files or a workflow as a successful test run.
 
