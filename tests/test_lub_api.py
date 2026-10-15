@@ -17,7 +17,7 @@ def register(username: str):
     response = client.post(
         "/api/auth/register",
         json={
-            "email": f"{username}@example.test",
+            "email": f"{username}@example.com",
             "username": username,
             "display_name": f"Test {username}",
             "password": "Test-only-password-2026!",
