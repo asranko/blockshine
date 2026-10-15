@@ -7,6 +7,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import io
+import zipfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -53,8 +55,20 @@ def paypal_base() -> str:
     return "https://api-m.paypal.com" if env("PAYPAL_MODE").lower() == "live" else "https://api-m.sandbox.paypal.com"
 
 
+def product_pack_valid() -> bool:
+    encoded = env("HESBA_KIT_B64")
+    if not encoded:
+        return False
+    try:
+        content = base64.b64decode(encoded, validate=True)
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            return archive.testzip() is None and len(archive.namelist()) >= 10
+    except Exception:
+        return False
+
+
 def payment_configured() -> bool:
-    return bool(env("PAYPAL_CLIENT_ID") and env("PAYPAL_CLIENT_SECRET") and len(env("HESBA_DOWNLOAD_SECRET")) >= 32 and env("HESBA_KIT_B64"))
+    return bool(env("PAYPAL_CLIENT_ID") and env("PAYPAL_CLIENT_SECRET") and len(env("HESBA_DOWNLOAD_SECRET")) >= 32 and product_pack_valid())
 
 
 def paypal_request(method: str, path: str, body: dict | None = None, request_id: str | None = None) -> dict:
@@ -150,6 +164,7 @@ def health():
         "status": "ok",
         "service": "hesba-payments-api",
         "checkout_configured": payment_configured(),
+        "product_pack_valid": product_pack_valid(),
         "paypal_mode": env("PAYPAL_MODE", "sandbox").lower() if env("PAYPAL_MODE", "sandbox").lower() in {"sandbox", "live"} else "sandbox",
         "version": "0.1.0",
     }
@@ -164,6 +179,7 @@ def public_config():
         "currency": PRODUCT_CURRENCY,
         "price": str(PRODUCT_PRICE),
         "product_name": PRODUCT_NAME,
+        "product_pack_valid": product_pack_valid(),
         "message": None if ready else "الدفع الإلكتروني لم يُفعّل بعد.",
     }
 
