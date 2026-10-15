@@ -56,32 +56,56 @@ def paypal_base() -> str:
     return "https://api-m.paypal.com" if env("PAYPAL_MODE").lower() == "live" else "https://api-m.sandbox.paypal.com"
 
 
-def load_product_pack() -> bytes:
+def product_pack_status() -> str:
     key_text = env("HESBA_KIT_KEY")
     if not key_text:
-        raise ValueError("product key not configured")
-    key = base64.b64decode(key_text, validate=True)
+        return "key_missing"
+    try:
+        key = base64.b64decode(key_text, validate=True)
+    except Exception:
+        return "key_invalid"
     if len(key) != 32:
-        raise ValueError("product key length invalid")
+        return "key_invalid_length"
+    encrypted_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.aesgcm.b64"
+    try:
+        encoded = encrypted_path.read_text(encoding="ascii").strip()
+    except FileNotFoundError:
+        return "asset_missing"
+    except Exception:
+        return "asset_read_failed"
+    try:
+        packed = base64.b64decode(encoded, validate=True)
+    except Exception:
+        return "ciphertext_invalid"
+    if len(packed) < 29:
+        return "ciphertext_too_short"
+    try:
+        content = AESGCM(key).decrypt(packed[:12], packed[12:], b"hesba-kit-v1")
+    except Exception:
+        return "decryption_failed"
+    if not content.startswith(bytes((80, 75, 3, 4))):
+        return "not_zip"
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            if archive.testzip() is not None or len(archive.namelist()) < 10:
+                return "archive_integrity_failed"
+    except Exception:
+        return "archive_invalid"
+    return "valid"
+
+
+def load_product_pack() -> bytes:
+    status = product_pack_status()
+    if status != "valid":
+        raise ValueError(status)
+    key = base64.b64decode(env("HESBA_KIT_KEY"), validate=True)
     encrypted_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.aesgcm.b64"
     packed = base64.b64decode(encrypted_path.read_text(encoding="ascii").strip(), validate=True)
-    if len(packed) < 29:
-        raise ValueError("encrypted product too short")
-    content = AESGCM(key).decrypt(packed[:12], packed[12:], b"hesba-kit-v1")
-    if not content.startswith(bytes((80, 75, 3, 4))):
-        raise ValueError("product is not a zip archive")
-    with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        if archive.testzip() is not None or len(archive.namelist()) < 10:
-            raise ValueError("product archive integrity failed")
-    return content
+    return AESGCM(key).decrypt(packed[:12], packed[12:], b"hesba-kit-v1")
 
 
 def product_pack_valid() -> bool:
-    try:
-        load_product_pack()
-        return True
-    except Exception:
-        return False
+    return product_pack_status() == "valid"
 
 def payment_configured() -> bool:
     return bool(env("PAYPAL_CLIENT_ID") and env("PAYPAL_CLIENT_SECRET") and len(env("HESBA_DOWNLOAD_SECRET")) >= 32 and product_pack_valid())
@@ -181,6 +205,7 @@ def health():
         "service": "hesba-payments-api",
         "checkout_configured": payment_configured(),
         "product_pack_valid": product_pack_valid(),
+        "product_pack_issue": product_pack_status(),
         "paypal_mode": env("PAYPAL_MODE", "sandbox").lower() if env("PAYPAL_MODE", "sandbox").lower() in {"sandbox", "live"} else "sandbox",
         "version": "0.1.0",
     }
@@ -196,6 +221,7 @@ def public_config():
         "price": str(PRODUCT_PRICE),
         "product_name": PRODUCT_NAME,
         "product_pack_valid": product_pack_valid(),
+        "product_pack_issue": product_pack_status(),
         "message": None if ready else "الدفع الإلكتروني لم يُفعّل بعد.",
     }
 
