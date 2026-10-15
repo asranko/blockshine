@@ -12,6 +12,14 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: TOKEN_HOURS
+        value: "24"
+      - key: PYTHON_VERSION
+        value: "3.12.8"
       # Reference the existing Render Postgres resource. Do not copy credentials into Git.
       - key: DATABASE_URL
         fromDatabase:
