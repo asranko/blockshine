@@ -1,0 +1,28 @@
+# حِسبة (Hesba)
+
+> أدوات عربية مجانية للتسعير، حساب هامش الربح ونقطة التعادل، وإنشاء فواتير وعروض سعر عامة، ومتابعة العملاء للمستقلين وأصحاب المشاريع الصغيرة.
+
+## الموقع
+- الصفحة الرئيسية: https://hesba-income-tools.onrender.com/
+- مكتبة الأدوات والأدلة: https://hesba-income-tools.onrender.com/resources.html
+- أداة مسار متابعة العملاء: https://hesba-income-tools.onrender.com/#lead-manager
+- حزمة مكتب المستقل: https://hesba-income-tools.onrender.com/#pro-kit
+
+## الأدوات والأدلة
+- حاسبة سعر الساعة: https://hesba-income-tools.onrender.com/#tools
+- دليل التسعير: https://hesba-income-tools.onrender.com/pricing-guide.html
+- دليل هامش الربح والزيادة على التكلفة: https://hesba-income-tools.onrender.com/profit-guide.html
+- دليل الفواتير وعروض السعر: https://hesba-income-tools.onrender.com/invoice-guide.html
+- دليل نقطة التعادل: https://hesba-income-tools.onrender.com/break-even-guide.html
+- قالب متابعة العملاء CSV: https://hesba-income-tools.onrender.com/free-client-pipeline.csv
+- دليل استخدام مسار العملاء: https://hesba-income-tools.onrender.com/client-pipeline-guide.html
+
+## حدود مهمة
+- مخرجات الحاسبات تقديرية وتعتمد على البيانات المدخلة.
+- نماذج الفواتير عامة وليست شهادة بأنها متوافقة مع كل متطلبات ضريبية أو قانونية.
+- مدخلات الحاسبات وسجلات مسار العملاء تحفظ محليًا في المتصفح في النسخة الحالية.
+- لا يوجد وعد بدخل مضمون. حالة الدفع تُعرض بوضوح ولا يُسمح بالتنزيل المدفوع إلا بعد تأكيد الدفع من الخادم.
+- سياسة الخصوصية: https://hesba-income-tools.onrender.com/privacy.html
+- شروط الاستخدام: https://hesba-income-tools.onrender.com/terms.html
+- خريطة الموقع: https://hesba-income-tools.onrender.com/sitemap.xml
+- تغذية RSS: https://hesba-income-tools.onrender.com/feed.xml
