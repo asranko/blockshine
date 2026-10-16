@@ -26,7 +26,7 @@ def _download_token(secret=TEST_SECRET, *, product_id=None, exp=None):
     return jwt.encode(
         {
             "sub": product_id or payments.PRODUCT_ID,
-            "order_id": "ORDER-TEST-20261016",
+            "order_id": "ORDERTEST20261016",
             "iat": now - 1,
             "exp": exp or now + 300,
         },
@@ -49,7 +49,7 @@ def _provider_order(status, custom_id, *, completed=False):
                 "amount": {"currency_code": "USD", "value": "5.99"},
             }]
         }
-    return {"id": "ORDER-TEST-20261016", "status": status, "purchase_units": [unit]}
+    return {"id": "ORDERTEST20261016", "status": status, "purchase_units": [unit]}
 
 
 def test_public_config_keeps_checkout_disabled_without_live_credentials(monkeypatch):
@@ -141,7 +141,7 @@ def test_capture_returns_a_token_not_a_token_bearing_url(monkeypatch):
     monkeypatch.setattr(payments, "paypal_request", fake_paypal_request)
     response = client.post(
         "/api/orders/capture",
-        json={"order_id": "ORDER-TEST-20261016"},
+        json={"order_id": "ORDERTEST20261016"},
     )
     assert response.status_code == 200, response.text
     payload = response.json()
@@ -156,7 +156,7 @@ def test_capture_returns_a_token_not_a_token_bearing_url(monkeypatch):
         options={"require": ["sub", "iat", "exp"]},
     )
     assert claims["sub"] == payments.PRODUCT_ID
-    assert claims["order_id"] == "ORDER-TEST-20261016"
+    assert claims["order_id"] == "ORDERTEST20261016"
 
 
 def test_download_cors_allows_authorization_header():
@@ -185,7 +185,7 @@ def test_reissue_download_for_completed_order_and_matching_payer_email(monkeypat
 
     response = client.post(
         "/api/orders/reissue-download",
-        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+        json={"order_id": "ORDERTEST20261016", "payer_email": "buyer@example.com"},
     )
     assert response.status_code == 200, response.text
     payload = response.json()
@@ -198,7 +198,7 @@ def test_reissue_download_for_completed_order_and_matching_payer_email(monkeypat
         options={"require": ["sub", "iat", "exp"]},
     )
     assert claims["sub"] == payments.PRODUCT_ID
-    assert claims["order_id"] == "ORDER-TEST-20261016"
+    assert claims["order_id"] == "ORDERTEST20261016"
 
 
 def test_reissue_download_rejects_payer_email_mismatch(monkeypatch):
@@ -211,7 +211,7 @@ def test_reissue_download_rejects_payer_email_mismatch(monkeypatch):
 
     response = client.post(
         "/api/orders/reissue-download",
-        json={"order_id": "ORDER-TEST-20261016", "payer_email": "attacker@example.com"},
+        json={"order_id": "ORDERTEST20261016", "payer_email": "attacker@example.com"},
     )
     assert response.status_code == 403
     assert response.json()["detail"] == "order_owner_verification_failed"
@@ -227,7 +227,7 @@ def test_reissue_download_rejects_unpaid_or_approved_order(monkeypatch):
 
     response = client.post(
         "/api/orders/reissue-download",
-        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+        json={"order_id": "ORDERTEST20261016", "payer_email": "buyer@example.com"},
     )
     assert response.status_code == 409
     assert response.json()["detail"] == "payment_not_completed"
@@ -237,7 +237,7 @@ def test_reissue_download_remains_closed_when_checkout_is_disabled(monkeypatch):
     monkeypatch.setattr(payments, "payment_configured", lambda: False)
     response = client.post(
         "/api/orders/reissue-download",
-        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+        json={"order_id": "ORDERTEST20261016", "payer_email": "buyer@example.com"},
     )
     assert response.status_code == 503
     assert response.json()["detail"] == "checkout_not_configured"
