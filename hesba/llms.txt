@@ -5,6 +5,7 @@
 ## الموقع
 - الصفحة الرئيسية: https://hesba-income-tools.onrender.com/
 - مكتبة الأدوات والأدلة: https://hesba-income-tools.onrender.com/resources.html
+- 3 قوالب مجانية قابلة للتنزيل: https://hesba-income-tools.onrender.com/free-samples.html
 - أداة مسار متابعة العملاء: https://hesba-income-tools.onrender.com/#lead-manager
 - حزمة مكتب المستقل: https://hesba-income-tools.onrender.com/#pro-kit
 
@@ -15,6 +16,9 @@
 - دليل الفواتير وعروض السعر: https://hesba-income-tools.onrender.com/invoice-guide.html
 - دليل نقطة التعادل: https://hesba-income-tools.onrender.com/break-even-guide.html
 - قالب متابعة العملاء CSV: https://hesba-income-tools.onrender.com/free-client-pipeline.csv
+- قالب عرض السعر المجاني: https://hesba-income-tools.onrender.com/free-samples/01-quote-template.md
+- قالب نطاق العمل المجاني: https://hesba-income-tools.onrender.com/free-samples/02-scope-of-work.md
+- رسائل متابعة الدفع المجانية: https://hesba-income-tools.onrender.com/free-samples/03-payment-follow-up.md
 - دليل استخدام مسار العملاء: https://hesba-income-tools.onrender.com/client-pipeline-guide.html
 - دليل دفتر متابعة الأعمال في Excel: https://hesba-income-tools.onrender.com/business-tracker-guide.html
 
