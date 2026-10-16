@@ -16,7 +16,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import jwt
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -32,7 +32,7 @@ APP.add_middleware(
     allow_origins=sorted(SITE_ORIGINS),
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 PRODUCT_ID = "hesba-freelancer-kit-v1"
@@ -325,11 +325,15 @@ def capture_order(data: CaptureOrderInput, request: Request):
         download_secret(),
         algorithm="HS256",
     )
-    return {"status": "COMPLETED", "download_url": "/api/download/" + token, "download_expires_in": DOWNLOAD_TTL_SECONDS}
+    return {"status": "COMPLETED", "download_token": token, "download_expires_in": DOWNLOAD_TTL_SECONDS}
 
 
-@APP.get("/api/download/{token}")
-def download_product(token: str):
+@APP.post("/api/download")
+def download_product(request: Request, authorization: str | None = Header(default=None)):
+    enforce_rate_limit(request, "download", 20)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="download_token_required")
+    token = authorization[7:].strip()
     try:
         claims = jwt.decode(token, download_secret(), algorithms=["HS256"], options={"require": ["sub", "iat", "exp"]})
         if claims.get("sub") != PRODUCT_ID or not claims.get("order_id"):
@@ -346,6 +350,7 @@ def download_product(token: str):
         headers={
             "Content-Disposition": 'attachment; filename="hesba-freelancer-desk-kit-v1.zip"',
             "Cache-Control": "no-store",
+            "Pragma": "no-cache",
             "X-Content-Type-Options": "nosniff",
         },
     )
