@@ -32,7 +32,7 @@ function render(){
  $("leadsTableBody").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const item=leads.find(x=>x.id===b.dataset.edit);if(item)enterEdit(item)}));
  $("leadsTableBody").querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>{const item=leads.find(x=>x.id===b.dataset.delete);if(!item)return;if(!confirm("تحذف فرصة «"+item.company+"» من هذا المتصفح؟"))return;const next=leads.filter(x=>x.id!==item.id);if(save(next)){if(editingId===item.id)clearForm();render();toast("تم حذف السجل.")}}));
 }
-$("leadForm").addEventListener("submit",e=>{e.preventDefault();const item=getForm();if(!item.company){$("leadCompany").focus();toast("اكتب اسم العميل أو الشركة.");return}const next=editingId?leads.map(x=>x.id===editingId?item:x):[item,...leads];if(save(next)){render();clearForm();toast(editingId?"":"تم حفظ الفرصة على جهازك.")}});
+$("leadForm").addEventListener("submit",e=>{e.preventDefault();const item=getForm();if(!item.company){$("leadCompany").focus();toast("اكتب اسم العميل أو الشركة.");return}const wasEditing=Boolean(editingId);const next=wasEditing?leads.map(x=>x.id===editingId?item:x):[item,...leads];if(save(next)){render();clearForm();toast(wasEditing?"تم تحديث السجل.":"تم حفظ الفرصة على جهازك.")}});
 $("cancelLeadEdit").addEventListener("click",clearForm);
 $("resetLeadForm").addEventListener("click",()=>{clearForm();$("leadCompany").focus()});
 $("leadSearch").addEventListener("input",render);$("leadStatusFilter").addEventListener("change",render);
