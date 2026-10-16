@@ -19,7 +19,7 @@ import jwt
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 APP = FastAPI(title="Hesba Payments", version="0.1.0")
 SITE_ORIGINS = {
@@ -208,7 +208,7 @@ def make_custom_id(timestamp: int) -> str:
     return value
 
 
-def verify_custom_id(value: str) -> bool:
+def verify_custom_id(value: str, max_age_seconds: int = 3 * 60 * 60) -> bool:
     try:
         packed, signature = value.split(".", 1)
         payload = base64.urlsafe_b64decode(packed + "=" * (-len(packed) % 4))
@@ -220,17 +220,17 @@ def verify_custom_id(value: str) -> bool:
         if claims.get("p") != "kit1" or claims.get("v") != "5.99" or claims.get("c") != "USD":
             return False
         age = int(time.time()) - int(claims["t"])
-        return -60 <= age <= 3 * 60 * 60
+        return -60 <= age <= max_age_seconds
     except Exception:
         return False
 
 
-def find_own_purchase_unit(order: dict) -> dict:
+def find_own_purchase_unit(order: dict, max_age_seconds: int = 3 * 60 * 60) -> dict:
     units = order.get("purchase_units") or []
     if len(units) != 1:
         raise HTTPException(status_code=409, detail="order_mismatch")
     unit = units[0]
-    if unit.get("reference_id") != PRODUCT_ID or not verify_custom_id(unit.get("custom_id", "")):
+    if unit.get("reference_id") != PRODUCT_ID or not verify_custom_id(unit.get("custom_id", ""), max_age_seconds):
         raise HTTPException(status_code=409, detail="order_mismatch")
     amount = unit.get("amount") or {}
     if amount.get("currency_code") != PRODUCT_CURRENCY or amount.get("value") != str(PRODUCT_PRICE):
@@ -244,6 +244,11 @@ class CreateOrderInput(BaseModel):
 
 class CaptureOrderInput(BaseModel):
     order_id: str = Field(min_length=8, max_length=40, pattern=r"^[A-Z0-9]+$")
+
+
+class ReissueDownloadInput(BaseModel):
+    order_id: str = Field(min_length=8, max_length=40, pattern=r"^[A-Z0-9]+$")
+    payer_email: EmailStr
 
 
 @APP.get("/")
@@ -336,6 +341,44 @@ def capture_order(data: CaptureOrderInput, request: Request):
         raise HTTPException(status_code=409, detail="payment_not_completed")
     token = jwt.encode(
         {"sub": PRODUCT_ID, "order_id": order_id, "iat": int(time.time()), "exp": int(time.time()) + DOWNLOAD_TTL_SECONDS},
+        download_secret(),
+        algorithm="HS256",
+    )
+    return {"status": "COMPLETED", "download_token": token, "download_expires_in": DOWNLOAD_TTL_SECONDS}
+
+
+@APP.post("/api/orders/reissue-download")
+def reissue_download(data: ReissueDownloadInput, request: Request):
+    enforce_rate_limit(request, "reissue_download", 5)
+    if not payment_configured():
+        raise HTTPException(status_code=503, detail="checkout_not_configured")
+
+    # Recover a previously purchased download only after re-checking the order at PayPal.
+    order_id = data.order_id
+    order = paypal_request("GET", "/v2/checkout/orders/" + urllib.parse.quote(order_id, safe=""))
+    unit = find_own_purchase_unit(order, max_age_seconds=10 * 365 * 24 * 60 * 60)
+
+    expected_email = str(data.payer_email).strip().casefold()
+    actual_email = str(((order.get("payer") or {}).get("email_address") or "")).strip().casefold()
+    if not actual_email or not hmac.compare_digest(actual_email, expected_email):
+        # Do not reveal whether an order ID exists or which part failed verification.
+        raise HTTPException(status_code=403, detail="order_owner_verification_failed")
+    if order.get("status") != "COMPLETED":
+        raise HTTPException(status_code=409, detail="payment_not_completed")
+
+    captures = ((unit.get("payments") or {}).get("captures") or [])
+    paid = any(
+        capture.get("status") == "COMPLETED"
+        and (capture.get("amount") or {}).get("currency_code") == PRODUCT_CURRENCY
+        and (capture.get("amount") or {}).get("value") == str(PRODUCT_PRICE)
+        for capture in captures
+    )
+    if not paid:
+        raise HTTPException(status_code=409, detail="payment_not_completed")
+
+    now = int(time.time())
+    token = jwt.encode(
+        {"sub": PRODUCT_ID, "order_id": order_id, "iat": now, "exp": now + DOWNLOAD_TTL_SECONDS},
         download_secret(),
         algorithm="HS256",
     )
