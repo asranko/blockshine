@@ -1,11 +1,16 @@
 {
   "name": "حِسبة | أدوات شغلك الحر",
   "short_name": "حِسبة",
+  "description": "حاسبات عربية للتسعير والربح، وفواتير وعروض سعر قابلة للطباعة.",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f4f5ef",
   "theme_color": "#123b2c",
-  "icons": []
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"},
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"maskable"}
+  ]
 }
