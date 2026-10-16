@@ -42,7 +42,7 @@ function renderButtons(config){
    const r=await fetch(API+"/api/orders/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_id:data.orderID})});
    const d=await r.json().catch(()=>({}));
    if(!r.ok||d.status!=="COMPLETED"||!d.download_url)throw new Error(d.detail||"لم يتم تأكيد الدفع. لم يُصدر رابط التنزيل.");
-   link.href=API+d.download_url;area.hidden=false;status.textContent="تم تأكيد الدفع. رابط التنزيل صالح لمدة 15 دقيقة. احفظ نسخة احتياطية بعد التنزيل.";holder.hidden=true;
+   link.href=API+d.download_url;link.hidden=false;area.hidden=false;status.textContent="تم تأكيد الدفع. رابط التنزيل صالح لمدة 15 دقيقة. احفظ نسخة احتياطية بعد التنزيل.";holder.hidden=true;
   },
   onCancel:()=>{status.textContent="ألغيت عملية الدفع. لم يتم إنشاء رابط تنزيل.";},
   onError:()=>{status.textContent="حدث خطأ أثناء الدفع. تحقق من حساب PayPal قبل المحاولة مجددًا، ولا تكرر الدفع إذا ظهر خصم.";},
