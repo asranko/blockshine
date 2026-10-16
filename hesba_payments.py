@@ -1,9 +1,11 @@
 import base64
+from collections import defaultdict, deque
 import hashlib
 import hmac
 import json
 import os
 import time
+from threading import Lock
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +41,31 @@ PRODUCT_CURRENCY = "USD"
 PRODUCT_NAME = "Hesba Freelancer Desk Kit (Arabic)"
 SITE_URL = "https://hesba-income-tools.onrender.com"
 DOWNLOAD_TTL_SECONDS = 15 * 60
+
+_RATE_WINDOW_SECONDS = 60
+_RATE_LIMITS: dict[str, deque[float]] = defaultdict(deque)
+_RATE_LOCK = Lock()
+
+
+def enforce_rate_limit(request: Request, bucket: str, max_requests: int) -> None:
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"{client_ip}:{bucket}"
+    now = time.monotonic()
+    with _RATE_LOCK:
+        events = _RATE_LIMITS[key]
+        while events and now - events[0] >= _RATE_WINDOW_SECONDS:
+            events.popleft()
+        if len(events) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail="rate_limit_exceeded",
+                headers={"Retry-After": str(_RATE_WINDOW_SECONDS)},
+            )
+        events.append(now)
+        if len(_RATE_LIMITS) > 5000:
+            stale_keys = [k for k, q in _RATE_LIMITS.items() if not q or now - q[-1] >= _RATE_WINDOW_SECONDS]
+            for stale_key in stale_keys[:1000]:
+                _RATE_LIMITS.pop(stale_key, None)
 
 
 def env(name: str, default: str = "") -> str:
@@ -202,7 +229,7 @@ class CreateOrderInput(BaseModel):
 
 
 class CaptureOrderInput(BaseModel):
-    order_id: str = Field(min_length=8, max_length=40)
+    order_id: str = Field(min_length=8, max_length=40, pattern=r"^[A-Z0-9]+$")
 
 
 @APP.get("/")
@@ -245,6 +272,7 @@ def public_config():
 
 @APP.post("/api/orders")
 def create_order(data: CreateOrderInput, request: Request):
+    enforce_rate_limit(request, "create_order", 8)
     if data.product_id != PRODUCT_ID:
         raise HTTPException(status_code=404, detail="product_not_found")
     if not payment_configured():
@@ -273,7 +301,8 @@ def create_order(data: CreateOrderInput, request: Request):
 
 
 @APP.post("/api/orders/capture")
-def capture_order(data: CaptureOrderInput):
+def capture_order(data: CaptureOrderInput, request: Request):
+    enforce_rate_limit(request, "capture_order", 12)
     if not payment_configured():
         raise HTTPException(status_code=503, detail="checkout_not_configured")
     order_id = data.order_id
