@@ -48,6 +48,15 @@
 
 اختبارات الانحدار موجودة في `tests/test_hesba_payments.py`، وملف سير العمل في `.github/workflows/hesba-payments-tests.yml`. لم يتم تأكيد نجاح تشغيل المجموعة الآلية عبر GitHub Actions؛ لا تدّعِ نجاحها قبل ظهور نتيجة تشغيل ناجحة.
 
+## القوالب المجانية
+
+- صفحة التنزيلات المجانية: https://hesba-income-tools.onrender.com/free-samples.html
+- قالب عرض السعر: `hesba/free-samples/01-quote-template.md`
+- قالب نطاق العمل: `hesba/free-samples/02-scope-of-work.md`
+- رسائل متابعة الدفع: `hesba/free-samples/03-payment-follow-up.md`
+
+هذه الملفات تنزيلات عامة فعلًا. لا يوجد نموذج بريد أو تخزين بيانات زائر؛ لذلك لا ندّعي جمع عملاء محتملين. الهدف من الصفحة تحسين قيمة البحث وتوفير عينة ملموسة قبل عرض الحزمة المدفوعة.
+
 ## مسار اكتساب الزوار
 
 القمع الحالي:
