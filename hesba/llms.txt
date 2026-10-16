@@ -16,6 +16,7 @@
 - دليل نقطة التعادل: https://hesba-income-tools.onrender.com/break-even-guide.html
 - قالب متابعة العملاء CSV: https://hesba-income-tools.onrender.com/free-client-pipeline.csv
 - دليل استخدام مسار العملاء: https://hesba-income-tools.onrender.com/client-pipeline-guide.html
+- دليل دفتر متابعة الأعمال في Excel: https://hesba-income-tools.onrender.com/business-tracker-guide.html
 
 ## حدود مهمة
 - مخرجات الحاسبات تقديرية وتعتمد على البيانات المدخلة.
