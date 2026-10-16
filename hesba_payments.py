@@ -83,6 +83,18 @@ def paypal_base() -> str:
     return "https://api-m.paypal.com" if env("PAYPAL_MODE").lower() == "live" else "https://api-m.sandbox.paypal.com"
 
 
+def encrypted_product_payload() -> bytes:
+    """Load the current encrypted kit only when all fixed chunks are present."""
+    asset_root = Path(__file__).resolve().parent / "hesba"
+    part_dir = asset_root / "kit-v2-parts"
+    parts = sorted(part_dir.glob("part*.b64")) if part_dir.exists() else []
+    if len(parts) == 8:
+        encoded = "".join(p.read_text(encoding="ascii").strip() for p in parts)
+    else:
+        encoded = (asset_root / "kit-v1.aesgcm.b64").read_text(encoding="ascii").strip()
+    return base64.b64decode(encoded, validate=True)
+
+
 def product_pack_status() -> str:
     key_text = env("HESBA_KIT_KEY")
     if not key_text:
@@ -93,15 +105,10 @@ def product_pack_status() -> str:
         return "key_invalid"
     if len(key) != 32:
         return "key_invalid_length"
-    encrypted_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.aesgcm.b64"
     try:
-        encoded = encrypted_path.read_text(encoding="ascii").strip()
+        packed = encrypted_product_payload()
     except FileNotFoundError:
         return "asset_missing"
-    except Exception:
-        return "asset_read_failed"
-    try:
-        packed = base64.b64decode(encoded, validate=True)
     except Exception:
         return "ciphertext_invalid"
     if len(packed) < 29:
@@ -114,8 +121,17 @@ def product_pack_status() -> str:
         return "not_zip"
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            if archive.testzip() is not None or len(archive.namelist()) < 10:
+            names = archive.namelist()
+            if archive.testzip() is not None:
                 return "archive_integrity_failed"
+            if "hesba-kit/trackers/hesba-business-tracker.xlsx" not in names:
+                return "workbook_missing"
+            if sum(n.startswith("hesba-kit/templates/") and n.endswith(".md") for n in names) < 12:
+                return "templates_missing"
+            if sum(n.startswith("hesba-kit/trackers/") and n.endswith(".csv") for n in names) < 3:
+                return "trackers_missing"
+            if "hesba-kit/README_AR.md" not in names:
+                return "readme_missing"
     except Exception:
         return "archive_invalid"
     return "valid"
@@ -126,10 +142,8 @@ def load_product_pack() -> bytes:
     if status != "valid":
         raise ValueError(status)
     key = base64.b64decode(env("HESBA_KIT_KEY"), validate=True)
-    encrypted_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.aesgcm.b64"
-    packed = base64.b64decode(encrypted_path.read_text(encoding="ascii").strip(), validate=True)
+    packed = encrypted_product_payload()
     return AESGCM(key).decrypt(packed[:12], packed[12:], b"hesba-kit-v1")
-
 
 def product_pack_valid() -> bool:
     return product_pack_status() == "valid"
