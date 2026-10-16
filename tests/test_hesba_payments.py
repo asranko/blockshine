@@ -171,3 +171,73 @@ def test_download_cors_allows_authorization_header():
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == "https://hesba-income-tools.onrender.com"
     assert "authorization" in response.headers.get("access-control-allow-headers", "").lower()
+
+
+
+def test_reissue_download_for_completed_order_and_matching_payer_email(monkeypatch):
+    monkeypatch.setenv("HESBA_DOWNLOAD_SECRET", TEST_SECRET)
+    monkeypatch.setattr(payments, "payment_configured", lambda: True)
+    monkeypatch.setattr(payments, "enforce_rate_limit", lambda *args, **kwargs: None)
+    old_custom_id = payments.make_custom_id(int(time.time()) - 90 * 24 * 60 * 60)
+    order = _provider_order("COMPLETED", old_custom_id, completed=True)
+    order["payer"] = {"email_address": "Buyer@example.com"}
+    monkeypatch.setattr(payments, "paypal_request", lambda method, path, body=None, request_id=None: order)
+
+    response = client.post(
+        "/api/orders/reissue-download",
+        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "COMPLETED"
+    assert "download_token" in payload
+    claims = jwt.decode(
+        payload["download_token"],
+        TEST_SECRET,
+        algorithms=["HS256"],
+        options={"require": ["sub", "iat", "exp"]},
+    )
+    assert claims["sub"] == payments.PRODUCT_ID
+    assert claims["order_id"] == "ORDER-TEST-20261016"
+
+
+def test_reissue_download_rejects_payer_email_mismatch(monkeypatch):
+    monkeypatch.setenv("HESBA_DOWNLOAD_SECRET", TEST_SECRET)
+    monkeypatch.setattr(payments, "payment_configured", lambda: True)
+    monkeypatch.setattr(payments, "enforce_rate_limit", lambda *args, **kwargs: None)
+    order = _provider_order("COMPLETED", payments.make_custom_id(int(time.time())), completed=True)
+    order["payer"] = {"email_address": "buyer@example.com"}
+    monkeypatch.setattr(payments, "paypal_request", lambda method, path, body=None, request_id=None: order)
+
+    response = client.post(
+        "/api/orders/reissue-download",
+        json={"order_id": "ORDER-TEST-20261016", "payer_email": "attacker@example.com"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "order_owner_verification_failed"
+
+
+def test_reissue_download_rejects_unpaid_or_approved_order(monkeypatch):
+    monkeypatch.setenv("HESBA_DOWNLOAD_SECRET", TEST_SECRET)
+    monkeypatch.setattr(payments, "payment_configured", lambda: True)
+    monkeypatch.setattr(payments, "enforce_rate_limit", lambda *args, **kwargs: None)
+    order = _provider_order("APPROVED", payments.make_custom_id(int(time.time())))
+    order["payer"] = {"email_address": "buyer@example.com"}
+    monkeypatch.setattr(payments, "paypal_request", lambda method, path, body=None, request_id=None: order)
+
+    response = client.post(
+        "/api/orders/reissue-download",
+        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "payment_not_completed"
+
+
+def test_reissue_download_remains_closed_when_checkout_is_disabled(monkeypatch):
+    monkeypatch.setattr(payments, "payment_configured", lambda: False)
+    response = client.post(
+        "/api/orders/reissue-download",
+        json={"order_id": "ORDER-TEST-20261016", "payer_email": "buyer@example.com"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "checkout_not_configured"
