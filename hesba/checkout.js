@@ -2,6 +2,7 @@
 "use strict";
 const API="https://hesba-payments-api.onrender.com";
 const $=id=>document.getElementById(id);
+let downloadToken=null;
 async function start(){
  const status=$("checkoutStatus"), holder=$("paypalButtons"), area=$("downloadArea");
  if(!status||!holder)return;
@@ -43,8 +44,28 @@ function renderButtons(config){
    try{
     const r=await fetch(API+"/api/orders/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_id:data.orderID})});
     const d=await r.json().catch(()=>({}));
-    if(!r.ok||d.status!=="COMPLETED"||!d.download_url)throw new Error(d.detail||"لم يتم تأكيد الدفع. لم يُصدر رابط التنزيل.");
-    link.href=API+d.download_url;link.hidden=false;area.hidden=false;status.textContent="تم تأكيد الدفع. رابط التنزيل صالح لمدة 15 دقيقة. احفظ نسخة احتياطية بعد التنزيل.";holder.hidden=true;
+    if(!r.ok||d.status!=="COMPLETED"||!d.download_token)throw new Error(d.detail||"لم يتم تأكيد الدفع. لم يُصدر رمز التنزيل.");
+    downloadToken=d.download_token;
+    link.href="#";link.hidden=false;area.hidden=false;holder.hidden=true;
+    status.textContent="تم تأكيد الدفع. رابط التنزيل الآمن صالح لمدة 15 دقيقة. اضغط لتنزيل الحزمة.";
+    link.onclick=async event=>{
+     event.preventDefault();
+     if(!downloadToken){status.textContent="انتهت صلاحية التنزيل. راجع تأكيد عملية الدفع قبل المحاولة مجددًا.";return;}
+     link.setAttribute("aria-disabled","true");
+     status.textContent="جارٍ تجهيز ملف التنزيل الآمن…";
+     try{
+      const fileResponse=await fetch(API+"/api/download",{method:"POST",headers:{"Authorization":"Bearer "+downloadToken}});
+      if(!fileResponse.ok)throw new Error("download_failed");
+      const blob=await fileResponse.blob();
+      const objectUrl=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=objectUrl;a.download="hesba-freelancer-desk-kit-v1.zip";document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
+      downloadToken=null;link.hidden=true;status.textContent="بدأ تنزيل الحزمة. احفظ نسخة احتياطية في مكان آمن.";
+     }catch(e){
+      status.textContent="تعذر تنزيل الحزمة. تحقّق من اتصالك؛ لن يتم خصم مبلغ إضافي بسبب محاولة التنزيل.";
+     }finally{link.removeAttribute("aria-disabled");}
+    };
+
    }catch(e){
     status.textContent="لم نستطع تأكيد الدفع وإصدار التنزيل. لن نعرض رابطًا قبل التحقق من عملية الدفع. افحص حالة العملية في PayPal قبل إعادة المحاولة.";
    }
