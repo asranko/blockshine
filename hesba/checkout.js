@@ -14,6 +14,7 @@ async function start(){
    status.setAttribute("data-state","disabled");
    return;
   }
+  holder.hidden=false;
   status.textContent="الدفع الآمن متاح عبر PayPal. لن نطلب بيانات البطاقة داخل حِسبة.";
   const script=document.createElement("script");
   script.src="https://www.paypal.com/sdk/js?client-id="+encodeURIComponent(config.paypal_client_id)+"&currency="+encodeURIComponent(config.currency)+"&intent=capture&components=buttons";
@@ -39,10 +40,14 @@ function renderButtons(config){
   },
   onApprove:async data=>{
    status.textContent="جارٍ التحقق من الدفع مع PayPal. لا تغلق الصفحة.";
-   const r=await fetch(API+"/api/orders/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_id:data.orderID})});
-   const d=await r.json().catch(()=>({}));
-   if(!r.ok||d.status!=="COMPLETED"||!d.download_url)throw new Error(d.detail||"لم يتم تأكيد الدفع. لم يُصدر رابط التنزيل.");
-   link.href=API+d.download_url;link.hidden=false;area.hidden=false;status.textContent="تم تأكيد الدفع. رابط التنزيل صالح لمدة 15 دقيقة. احفظ نسخة احتياطية بعد التنزيل.";holder.hidden=true;
+   try{
+    const r=await fetch(API+"/api/orders/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({order_id:data.orderID})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.status!=="COMPLETED"||!d.download_url)throw new Error(d.detail||"لم يتم تأكيد الدفع. لم يُصدر رابط التنزيل.");
+    link.href=API+d.download_url;link.hidden=false;area.hidden=false;status.textContent="تم تأكيد الدفع. رابط التنزيل صالح لمدة 15 دقيقة. احفظ نسخة احتياطية بعد التنزيل.";holder.hidden=true;
+   }catch(e){
+    status.textContent="لم نستطع تأكيد الدفع وإصدار التنزيل. لن نعرض رابطًا قبل التحقق من عملية الدفع. افحص حالة العملية في PayPal قبل إعادة المحاولة.";
+   }
   },
   onCancel:()=>{status.textContent="ألغيت عملية الدفع. لم يتم إنشاء رابط تنزيل.";},
   onError:()=>{status.textContent="حدث خطأ أثناء الدفع. تحقق من حساب PayPal قبل المحاولة مجددًا، ولا تكرر الدفع إذا ظهر خصم.";},
