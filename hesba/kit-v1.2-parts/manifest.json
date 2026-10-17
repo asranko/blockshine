@@ -1,0 +1,11 @@
+{
+  "version": "1.2",
+  "part_count": 10,
+  "part_size": 6000,
+  "encoded_length": 55356,
+  "encoded_sha256": "bd3cd0ade91e587eafd5ac9477b2f4932393d1389504d30c34a3c5df10a5b3a2",
+  "ciphertext_sha256": "1e03d49efd1005e91823a74aaee117dd1a82f2b6ad19d840a753f24135859e75",
+  "zip_sha256": "0755a97c62cd4c89aabc6bd7f2f08315685f3b6c54f0e3a309c8a65a0746d29f",
+  "zip_size_bytes": 41489,
+  "aad": "hesba-kit-v1"
+}

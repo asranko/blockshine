@@ -19,7 +19,7 @@ An Arabic-first toolkit for freelancers and small businesses: pricing calculator
 - Break-even calculator for fixed costs, contribution per unit and target profit.
 - Arabic invoice/quotation builder with print/PDF, local drafts and JSON backup.
 - Free Arabic guides and downloadable templates.
-- Paid **Hesba Freelancer Desk Kit (Arabic)**: 12 templates, an Excel business tracker workbook with a dashboard and formulas, and 3 CSV trackers. Current displayed price: **$5.99 USD**.
+- Paid **Hesba Freelancer Desk Kit (Arabic), v1.2**: 12 templates, an Excel business tracker workbook with 6 sheets (including a lead pipeline, calculated invoice status, dropdown validations and conditional formatting), and 3 CSV trackers. The workbook is designed for one currency per file. Current displayed price: **$5.99 USD**.
 
 ## Accurate current launch state
 

@@ -83,9 +83,46 @@ def paypal_base() -> str:
     return "https://api-m.paypal.com" if env("PAYPAL_MODE").lower() == "live" else "https://api-m.sandbox.paypal.com"
 
 
+def current_product_manifest() -> dict | None:
+    manifest_path = Path(__file__).resolve().parent / "hesba" / "kit-v1.2-parts" / "manifest.json"
+    if not manifest_path.exists():
+        return None
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
 def encrypted_product_payload() -> bytes:
-    """Load the current encrypted kit only when all fixed chunks are present."""
+    """Load and integrity-check the current encrypted digital kit."""
     asset_root = Path(__file__).resolve().parent / "hesba"
+    manifest_path = asset_root / "kit-v1.2-parts" / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("version") != "1.2":
+            raise ValueError("unsupported_product_version")
+        count = manifest.get("part_count")
+        if not isinstance(count, int) or count != 10:
+            raise ValueError("invalid_product_part_count")
+        part_dir = asset_root / "kit-v1.2-parts"
+        chunks = []
+        for index in range(1, count + 1):
+            part_path = part_dir / f"part{index:02d}.b64"
+            chunks.append(part_path.read_text(encoding="ascii").strip())
+        encoded = "".join(chunks)
+        if len(encoded) != manifest.get("encoded_length"):
+            raise ValueError("encoded_length_mismatch")
+        if not hmac.compare_digest(
+            hashlib.sha256(encoded.encode("ascii")).hexdigest(),
+            str(manifest.get("encoded_sha256", "")),
+        ):
+            raise ValueError("encoded_hash_mismatch")
+        packed = base64.b64decode(encoded, validate=True)
+        if not hmac.compare_digest(
+            hashlib.sha256(packed).hexdigest(),
+            str(manifest.get("ciphertext_sha256", "")),
+        ):
+            raise ValueError("ciphertext_hash_mismatch")
+        return packed
+
+    # Compatibility fallback for the previous published kit.
     part_dir = asset_root / "kit-v2-parts"
     parts = sorted(part_dir.glob("part*.b64")) if part_dir.exists() else []
     if len(parts) == 8:
@@ -119,6 +156,12 @@ def product_pack_status() -> str:
         return "decryption_failed"
     if not content.startswith(bytes((80, 75, 3, 4))):
         return "not_zip"
+    manifest = current_product_manifest()
+    if manifest is not None and not hmac.compare_digest(
+        hashlib.sha256(content).hexdigest(),
+        str(manifest.get("zip_sha256", "")),
+    ):
+        return "archive_hash_mismatch"
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             names = archive.namelist()
@@ -132,6 +175,10 @@ def product_pack_status() -> str:
                 return "trackers_missing"
             if "hesba-kit/README_AR.md" not in names:
                 return "readme_missing"
+            if "hesba-kit/VERSION.txt" not in names:
+                return "version_missing"
+            if manifest is not None and b"Version: 1.2" not in archive.read("hesba-kit/VERSION.txt"):
+                return "version_mismatch"
     except Exception:
         return "archive_invalid"
     return "valid"
